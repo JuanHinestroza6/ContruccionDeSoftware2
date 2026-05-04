@@ -33,4 +33,7 @@ public interface ClientRepositoryPort {
 
     /** Returns true if a client with the given identification number already exists. */
     boolean existsByIdentificationId(String identificationId);
+
+    /** Returns true if a client with the given email already exists. */
+    boolean existsByEmail(String email);
 }

@@ -25,11 +25,8 @@ public interface UserRepositoryPort {
      */
     Optional<User> findByRelatedClientId(UUID clientId);
 
-    /** Finds a user by their national identification number (CC, pasaporte, etc.). */
-    Optional<User> findByIdentificationId(String identificationId);
-
-    /** Finds a user by email address. */
-    Optional<User> findByEmail(String email);
+    /** Finds a user by their unique username (login handle). */
+    Optional<User> findByUsername(String username);
 
     /** Returns all users that hold the given role. */
     List<User> findByRole(SystemRole role);
@@ -37,9 +34,6 @@ public interface UserRepositoryPort {
     /** Returns all users in the given status. */
     List<User> findByStatus(UserStatus status);
 
-    /** Returns true if a user with the given email already exists. */
-    boolean existsByEmail(String email);
-
-    /** Returns true if a user with the given identification already exists. */
-    boolean existsByIdentificationId(String identificationId);
+    /** Returns true if a user with the given username already exists. */
+    boolean existsByUsername(String username);
 }
