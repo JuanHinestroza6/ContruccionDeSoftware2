@@ -3,22 +3,21 @@ package co.edu.tdea.bank.infrastructure.adapter.sql.mapper;
 import co.edu.tdea.bank.domain.model.User;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.UserEntity;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
  * Static utility — converts {@link User} domain objects to/from JPA entities.
  *
- * <p><b>WARNING — schema mismatch:</b> {@code UserEntity} stores
- * {@code username}/{@code password} but lacks the personal fields the domain
- * {@link User} carries ({@code fullName}, {@code identificationId}, {@code email},
- * {@code phone}, {@code birthDate}, {@code address}). Until the entity is
- * extended (or those fields are sourced from the linked {@link
- * co.edu.tdea.bank.domain.model.Client}), {@code toDomain(...)} fills the gaps
- * with derived placeholders so the {@link User.Builder} contract is honoured.
- * Treat the resulting domain object as auth/role-metadata only — the personal
- * fields are NOT authoritative until the schema is reconciled.
+ * <p>{@code UserEntity} now carries the full personal profile of the user
+ * (Option A: the User aggregate owns its own profile data). The mapper performs
+ * a 1:1 field translation; no placeholders or fallbacks are used.
+ *
+ * <p><b>Security fields (username/password):</b> these live on {@code UserEntity}
+ * but are NOT part of the domain {@link User} model — they belong to the
+ * security/authentication adapter. {@code toEntity(...)} therefore leaves them
+ * untouched on creation; the security layer is responsible for populating them
+ * before persistence on the auth path.
  */
 public final class UserMapper {
 
@@ -31,29 +30,29 @@ public final class UserMapper {
         entity.setRelatedClientId(user.getRelatedClientId());
         entity.setSystemRole(user.getSystemRole());
         entity.setUserStatus(user.getUserStatus());
-        // username/password are managed outside the domain User model — adapter
-        // callers must populate them before invoking save() through the auth path.
+        entity.setFullName(user.getFullName());
+        entity.setIdentificationId(user.getIdentificationId());
+        entity.setEmail(user.getEmail());
+        entity.setPhone(user.getPhone());
+        entity.setBirthDate(user.getBirthDate());
+        entity.setAddress(user.getAddress());
+        // username / password are credentials — managed by the security adapter,
+        // not by the domain User model. The auth path populates them separately
+        // before invoking save() on the persistence port.
         return entity;
     }
 
-    /**
-     * Rehydrates a domain {@link User} using the columns currently available in
-     * {@link UserEntity}. Personal fields are filled with derived placeholders
-     * (see class-level WARNING). Replace with real data once the entity carries
-     * those columns or once a join with {@code ClientEntity} is wired in.
-     */
     public static User toDomain(UserEntity entity) {
         if (entity == null) return null;
-        String fallback = entity.getUsername() != null ? entity.getUsername() : entity.getUserId().toString();
         return User.builder()
                 .userId(entity.getUserId())
                 .relatedClientId(entity.getRelatedClientId())
-                .fullName(fallback)
-                .identificationId(fallback)
-                .email(fallback.contains("@") ? fallback : fallback + "@placeholder.local")
-                .phone("0000000000")
-                .birthDate(LocalDate.of(1970, 1, 1))
-                .address("UNKNOWN")
+                .fullName(entity.getFullName())
+                .identificationId(entity.getIdentificationId())
+                .email(entity.getEmail())
+                .phone(entity.getPhone())
+                .birthDate(entity.getBirthDate())
+                .address(entity.getAddress())
                 .systemRole(entity.getSystemRole())
                 .userStatus(entity.getUserStatus())
                 .build();

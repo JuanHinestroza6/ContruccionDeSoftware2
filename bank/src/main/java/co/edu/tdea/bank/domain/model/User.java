@@ -139,7 +139,10 @@ public final class User {
         }
 
         public Builder birthDate(LocalDate birthDate) {
-            if (birthDate == null || birthDate.isAfter(LocalDate.now())) {
+            // birthDate is optional for Users that represent internal bank
+            // employees (e.g. tellers). The "must be of legal age" rule lives
+            // exclusively on IndividualClient, not on User.
+            if (birthDate != null && birthDate.isAfter(LocalDate.now())) {
                 throw new IllegalArgumentException("birthDate must be a past date.");
             }
             this.birthDate = birthDate;
