@@ -1,5 +1,6 @@
 package co.edu.tdea.bank.domain.model;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -17,6 +18,16 @@ public final class BusinessClient extends Client {
         super(clientId, identificationId, email, phone, address);
         this.companyName           = companyName;
         this.legalRepresentative   = legalRepresentative;
+    }
+
+    /** Constructor de rehidratación — sin validaciones de creación. */
+    private BusinessClient(UUID clientId, String identificationId, String email,
+                           String phone, String address,
+                           String companyName, String legalRepresentative,
+                           boolean reconstruct) {
+        super(clientId, identificationId, email, phone, address, reconstruct);
+        this.companyName         = companyName;
+        this.legalRepresentative = legalRepresentative;
     }
 
     /**
@@ -44,6 +55,22 @@ public final class BusinessClient extends Client {
                 companyName.trim(),
                 legalRepresentative.trim()
         );
+    }
+
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     */
+    public static BusinessClient reconstruct(UUID clientId,
+                                             String identificationId,
+                                             String email,
+                                             String phone,
+                                             String address,
+                                             String companyName,
+                                             String legalRepresentative) {
+        Objects.requireNonNull(companyName,         "companyName must not be null.");
+        Objects.requireNonNull(legalRepresentative, "legalRepresentative must not be null.");
+        return new BusinessClient(clientId, identificationId, email, phone, address,
+                                  companyName, legalRepresentative, true);
     }
 
     public void updateLegalRepresentative(String legalRepresentative) {

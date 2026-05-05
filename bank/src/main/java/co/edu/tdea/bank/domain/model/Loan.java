@@ -85,6 +85,54 @@ public final class Loan {
         return new Loan(loanId, loanType, applicantClient, requestedAmount, termInMonths);
     }
 
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     *
+     * <p>Validaciones mínimas de coherencia de estado:
+     * <ul>
+     *   <li>{@code APPROVED}/{@code DISBURSED} ⇒ {@code approvalDate}, {@code approvedAmount},
+     *       {@code interestRate} no nulos.</li>
+     *   <li>{@code DISBURSED} ⇒ {@code disbursementDate} y {@code disbursementTargetAccount} no nulos.</li>
+     * </ul>
+     */
+    public static Loan reconstruct(Long loanId,
+                                   LoanType loanType,
+                                   Client applicantClient,
+                                   BigDecimal requestedAmount,
+                                   Integer termInMonths,
+                                   BigDecimal approvedAmount,
+                                   BigDecimal interestRate,
+                                   LoanStatus loanStatus,
+                                   LocalDate approvalDate,
+                                   LocalDate disbursementDate,
+                                   BankAccount disbursementTargetAccount) {
+        Objects.requireNonNull(loanId,          "loanId must not be null.");
+        Objects.requireNonNull(loanType,        "loanType must not be null.");
+        Objects.requireNonNull(applicantClient, "applicantClient must not be null.");
+        Objects.requireNonNull(requestedAmount, "requestedAmount must not be null.");
+        Objects.requireNonNull(termInMonths,    "termInMonths must not be null.");
+        Objects.requireNonNull(loanStatus,      "loanStatus must not be null.");
+
+        if (loanStatus == LoanStatus.APPROVED || loanStatus == LoanStatus.DISBURSED) {
+            Objects.requireNonNull(approvedAmount, "approvedAmount must not be null when status is " + loanStatus + ".");
+            Objects.requireNonNull(interestRate,   "interestRate must not be null when status is " + loanStatus + ".");
+            Objects.requireNonNull(approvalDate,   "approvalDate must not be null when status is " + loanStatus + ".");
+        }
+        if (loanStatus == LoanStatus.DISBURSED) {
+            Objects.requireNonNull(disbursementDate,          "disbursementDate must not be null when status is DISBURSED.");
+            Objects.requireNonNull(disbursementTargetAccount, "disbursementTargetAccount must not be null when status is DISBURSED.");
+        }
+
+        Loan loan = new Loan(loanId, loanType, applicantClient, requestedAmount, termInMonths);
+        loan.approvedAmount            = approvedAmount;
+        loan.interestRate              = interestRate;
+        loan.loanStatus                = loanStatus;
+        loan.approvalDate              = approvalDate;
+        loan.disbursementDate          = disbursementDate;
+        loan.disbursementTargetAccount = disbursementTargetAccount;
+        return loan;
+    }
+
     // -------------------------------------------------------------------------
     // State transitions
     // -------------------------------------------------------------------------

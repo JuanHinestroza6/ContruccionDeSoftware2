@@ -24,6 +24,15 @@ public final class IndividualClient extends Client {
         this.birthDate = birthDate;
     }
 
+    /** Constructor de rehidratación — sin validaciones de creación. */
+    private IndividualClient(UUID clientId, String identificationId, String email,
+                             String phone, String address,
+                             String fullName, LocalDate birthDate, boolean reconstruct) {
+        super(clientId, identificationId, email, phone, address, reconstruct);
+        this.fullName  = fullName;
+        this.birthDate = birthDate;
+    }
+
     /**
      * Factory method — validates all invariants before constructing the object.
      */
@@ -57,6 +66,22 @@ public final class IndividualClient extends Client {
                 fullName.trim(),
                 birthDate
         );
+    }
+
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     */
+    public static IndividualClient reconstruct(UUID clientId,
+                                               String identificationId,
+                                               String email,
+                                               String phone,
+                                               String address,
+                                               String fullName,
+                                               LocalDate birthDate) {
+        Objects.requireNonNull(fullName,  "fullName must not be null.");
+        Objects.requireNonNull(birthDate, "birthDate must not be null.");
+        return new IndividualClient(clientId, identificationId, email, phone, address,
+                                    fullName, birthDate, true);
     }
 
     public String getFullName()     { return fullName; }

@@ -79,6 +79,27 @@ public final class BankAccount {
         );
     }
 
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     */
+    public static BankAccount reconstruct(String accountNumber,
+                                          AccountType accountType,
+                                          Client holder,
+                                          BigDecimal currentBalance,
+                                          CurrencyType currency,
+                                          LocalDate openingDate,
+                                          AccountStatus accountStatus) {
+        Objects.requireNonNull(accountNumber,  "accountNumber must not be null.");
+        Objects.requireNonNull(accountType,    "accountType must not be null.");
+        Objects.requireNonNull(holder,         "holder must not be null.");
+        Objects.requireNonNull(currentBalance, "currentBalance must not be null.");
+        Objects.requireNonNull(currency,       "currency must not be null.");
+        Objects.requireNonNull(openingDate,    "openingDate must not be null.");
+        Objects.requireNonNull(accountStatus,  "accountStatus must not be null.");
+        return new BankAccount(accountNumber, accountType, holder,
+                               currentBalance, currency, openingDate, accountStatus);
+    }
+
     // --- Status queries ---
 
     /** Returns {@code true} when the account status is {@code ACTIVE}. */

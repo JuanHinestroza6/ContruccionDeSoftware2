@@ -92,6 +92,48 @@ public final class Transfer {
                             amount, creationDateTime, createdBy);
     }
 
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     *
+     * <p>Validaciones mínimas de coherencia de estado:
+     * <ul>
+     *   <li>{@code EXECUTED} ⇒ {@code approvalDateTime} y {@code approvedBy} no nulos.</li>
+     *   <li>{@code REJECTED} ⇒ {@code approvedBy} no nulo (quien rechazó).</li>
+     * </ul>
+     */
+    public static Transfer reconstruct(Long transferId,
+                                       BankAccount sourceAccount,
+                                       BankAccount destinationAccount,
+                                       BigDecimal amount,
+                                       LocalDateTime creationDateTime,
+                                       User createdBy,
+                                       LocalDateTime approvalDateTime,
+                                       TransferStatus transferStatus,
+                                       User approvedBy) {
+        Objects.requireNonNull(transferId,         "transferId must not be null.");
+        Objects.requireNonNull(sourceAccount,      "sourceAccount must not be null.");
+        Objects.requireNonNull(destinationAccount, "destinationAccount must not be null.");
+        Objects.requireNonNull(amount,             "amount must not be null.");
+        Objects.requireNonNull(creationDateTime,   "creationDateTime must not be null.");
+        Objects.requireNonNull(createdBy,          "createdBy must not be null.");
+        Objects.requireNonNull(transferStatus,     "transferStatus must not be null.");
+
+        if (transferStatus == TransferStatus.EXECUTED) {
+            Objects.requireNonNull(approvalDateTime, "approvalDateTime must not be null when status is EXECUTED.");
+            Objects.requireNonNull(approvedBy,       "approvedBy must not be null when status is EXECUTED.");
+        }
+        if (transferStatus == TransferStatus.REJECTED) {
+            Objects.requireNonNull(approvedBy, "approvedBy must not be null when status is REJECTED.");
+        }
+
+        Transfer transfer = new Transfer(transferId, sourceAccount, destinationAccount,
+                                         amount, creationDateTime, createdBy);
+        transfer.approvalDateTime = approvalDateTime;
+        transfer.transferStatus   = transferStatus;
+        transfer.approvedBy       = approvedBy;
+        return transfer;
+    }
+
     // -------------------------------------------------------------------------
     // Business query
     // -------------------------------------------------------------------------

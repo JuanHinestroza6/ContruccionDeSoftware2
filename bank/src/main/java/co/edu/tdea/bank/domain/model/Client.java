@@ -39,6 +39,25 @@ public abstract class Client {
         this.address          = address.trim();
     }
 
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     * Constructor protegido sin trimming/normalización ni reglas de creación —
+     * usado por las subclases concretas en sus métodos {@code reconstruct(...)}.
+     */
+    protected Client(UUID clientId, String identificationId, String email,
+                     String phone, String address, boolean reconstruct) {
+        Objects.requireNonNull(clientId,         "clientId must not be null.");
+        Objects.requireNonNull(identificationId, "identificationId must not be null.");
+        Objects.requireNonNull(email,            "email must not be null.");
+        Objects.requireNonNull(phone,            "phone must not be null.");
+        Objects.requireNonNull(address,          "address must not be null.");
+        this.clientId         = clientId;
+        this.identificationId = identificationId;
+        this.email            = email;
+        this.phone            = phone;
+        this.address          = address;
+    }
+
     // --- Contact update ---
 
     public void updateContact(String email, String phone, String address) {

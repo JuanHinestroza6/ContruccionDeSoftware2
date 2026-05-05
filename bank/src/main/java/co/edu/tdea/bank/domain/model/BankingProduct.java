@@ -52,6 +52,19 @@ public final class BankingProduct {
         );
     }
 
+    /**
+     * Reconstrucción desde almacenamiento. Asume invariantes ya validadas en creación original.
+     */
+    public static BankingProduct reconstruct(String productCode,
+                                             String productName,
+                                             ProductCategory category,
+                                             boolean requiresApproval) {
+        Objects.requireNonNull(productCode, "productCode must not be null.");
+        Objects.requireNonNull(productName, "productName must not be null.");
+        Objects.requireNonNull(category,    "category must not be null.");
+        return new BankingProduct(productCode, productName, category, requiresApproval);
+    }
+
     // --- Getters ---
 
     public String getProductCode()       { return productCode; }
