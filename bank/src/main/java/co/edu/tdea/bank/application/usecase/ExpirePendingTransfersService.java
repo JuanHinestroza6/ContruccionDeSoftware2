@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — scans all transfers in {@code PENDING_APPROVAL} and expires
  * those that have exceeded the allowed approval window.
@@ -27,6 +29,7 @@ import java.util.List;
  *   <li>Each expiration is audited with the reason required by the PDF spec.</li>
  * </ol>
  */
+@Service
 public class ExpirePendingTransfersService implements ExpirePendingTransfersUseCase {
 
     private static final String EXPIRATION_REASON =

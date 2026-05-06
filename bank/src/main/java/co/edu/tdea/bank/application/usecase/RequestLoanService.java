@@ -17,6 +17,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the submission of a new loan request.
  *
@@ -31,6 +33,7 @@ import java.util.UUID;
  * <p>The loan identifier is assigned by the persistence layer after saving;
  * the domain factory {@link Loan#request} is called with the ID returned by the repository.
  */
+@Service
 public class RequestLoanService implements RequestLoanUseCase {
 
     private final ClientRepositoryPort clientRepositoryPort;

@@ -14,6 +14,8 @@ import co.edu.tdea.bank.shared.exception.UnauthorizedOperationException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the rejection of a loan under review.
  *
@@ -26,6 +28,7 @@ import java.util.UUID;
  *   <li>The updated loan is persisted and the operation is audited.</li>
  * </ol>
  */
+@Service
 public class RejectLoanService implements RejectLoanUseCase {
 
     private final LoanRepositoryPort loanRepositoryPort;

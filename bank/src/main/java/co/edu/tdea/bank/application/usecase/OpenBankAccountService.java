@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the opening of a new bank account.
  *
@@ -31,6 +33,7 @@ import java.util.UUID;
  *   <li>The account is created, persisted, and the operation is audited.</li>
  * </ol>
  */
+@Service
 public class OpenBankAccountService implements OpenBankAccountUseCase {
 
     private final ClientRepositoryPort clientRepositoryPort;

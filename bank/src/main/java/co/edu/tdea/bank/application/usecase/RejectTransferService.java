@@ -14,6 +14,8 @@ import co.edu.tdea.bank.shared.exception.UnauthorizedOperationException;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the rejection of a pending transfer.
  * No funds are moved; the transfer moves to a terminal {@code REJECTED} state.
@@ -28,6 +30,7 @@ import java.util.UUID;
  *   <li>The updated transfer is persisted and the operation is audited.</li>
  * </ol>
  */
+@Service
 public class RejectTransferService implements RejectTransferUseCase {
 
     private final TransferRepositoryPort transferRepositoryPort;

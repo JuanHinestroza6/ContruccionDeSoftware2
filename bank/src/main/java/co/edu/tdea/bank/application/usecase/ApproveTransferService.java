@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the approval and immediate execution of a
  * pending transfer.
@@ -34,6 +36,7 @@ import java.util.UUID;
  *   <li>Operation is audited with balance snapshot.</li>
  * </ol>
  */
+@Service
 public class ApproveTransferService implements ApproveTransferUseCase {
 
     private final TransferRepositoryPort transferRepositoryPort;

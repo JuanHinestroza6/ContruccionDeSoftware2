@@ -18,6 +18,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the disbursement of an approved loan.
  *
@@ -34,6 +36,7 @@ import java.util.UUID;
  *   <li>The operation is audited with balance snapshot for traceability.</li>
  * </ol>
  */
+@Service
 public class DisburseLoanService implements DisburseLoanUseCase {
 
     private final LoanRepositoryPort loanRepositoryPort;

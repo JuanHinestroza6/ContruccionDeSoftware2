@@ -16,6 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the creation of a fund transfer.
  *
@@ -36,6 +38,7 @@ import java.util.UUID;
  *       by the domain model; exceptions are translated to application-layer types.</li>
  * </ol>
  */
+@Service
 public class CreateTransferService implements CreateTransferUseCase {
 
     private final TransferRepositoryPort transferRepositoryPort;

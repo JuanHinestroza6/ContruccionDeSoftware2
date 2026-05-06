@@ -16,6 +16,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Application service — orchestrates the approval of a loan under review.
  *
@@ -28,6 +30,7 @@ import java.util.UUID;
  *   <li>The updated loan is persisted and the operation is audited.</li>
  * </ol>
  */
+@Service
 public class ApproveLoanService implements ApproveLoanUseCase {
 
     private final LoanRepositoryPort loanRepositoryPort;
