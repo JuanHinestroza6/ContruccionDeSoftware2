@@ -1,8 +1,8 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.mapper;
 
-import co.edu.tdea.bank.domain.model.BusinessClient;
-import co.edu.tdea.bank.domain.model.Client;
-import co.edu.tdea.bank.domain.model.IndividualClient;
+import co.edu.tdea.bank.domain.models.BusinessClient;
+import co.edu.tdea.bank.domain.models.Client;
+import co.edu.tdea.bank.domain.models.IndividualClient;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BusinessClientEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.ClientEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.IndividualClientEntity;

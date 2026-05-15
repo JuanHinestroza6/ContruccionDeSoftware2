@@ -1,9 +1,9 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.adapter;
 
-import co.edu.tdea.bank.application.port.out.UserRepositoryPort;
+import co.edu.tdea.bank.domain.ports.out.UserRepositoryPort;
 import co.edu.tdea.bank.domain.enums.SystemRole;
 import co.edu.tdea.bank.domain.enums.UserStatus;
-import co.edu.tdea.bank.domain.model.User;
+import co.edu.tdea.bank.domain.models.User;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.UserEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.mapper.UserMapper;
 import co.edu.tdea.bank.infrastructure.adapter.sql.repository.UserJpaRepository;

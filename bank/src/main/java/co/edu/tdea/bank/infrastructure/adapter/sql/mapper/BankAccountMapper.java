@@ -1,6 +1,6 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.mapper;
 
-import co.edu.tdea.bank.domain.model.BankAccount;
+import co.edu.tdea.bank.domain.models.BankAccount;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BankAccountEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.ClientEntity;
 

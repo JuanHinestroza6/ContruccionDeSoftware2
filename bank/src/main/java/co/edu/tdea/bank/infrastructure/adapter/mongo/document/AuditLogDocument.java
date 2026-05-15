@@ -8,11 +8,11 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.LocalDateTime;
 
 /**
- * Immutable audit-log document — one record per operation written to the
- * Bitácora de Operaciones in MongoDB.
+ * Immutable audit-log document â€” one record per operation written to the
+ * BitÃ¡cora de Operaciones in MongoDB.
  *
  * <p>Indexed fields match the most common query paths exposed by
- * {@link co.edu.tdea.bank.application.port.out.AuditLogPort}: {@code findByEntity}
+ * {@link co.edu.tdea.bank.domain.ports.out.AuditLogPort}: {@code findByEntity}
  * (entityType + entityId) and {@code findByPerformedBy} (performedBy), plus
  * {@code occurredAt} for chronological filtering.
  */

@@ -1,6 +1,6 @@
 package co.edu.tdea.bank.infrastructure.scheduler;
 
-import co.edu.tdea.bank.application.port.in.ExpirePendingTransfersUseCase;
+import co.edu.tdea.bank.domain.ports.in.ExpirePendingTransfersUseCase;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,13 +39,13 @@ public class TransferExpirationScheduler {
 
     @Scheduled(fixedRateString = "${bank.transfers.expiration-job-rate-ms}")
     public void expirePendingTransfers() {
-        log.debug("Running scheduled job — window={} minutes", expirationWindowMinutes);
+        log.debug("Running scheduled job â€” window={} minutes", expirationWindowMinutes);
         try {
             List<Long> expiredIds = expirePendingTransfers.expirePendingTransfers(
                 LocalDateTime.now(),
                 Duration.ofMinutes(expirationWindowMinutes)
             );
-            log.debug("Scheduled job completed — window={} minutes, expired={} transfer(s)",
+            log.debug("Scheduled job completed â€” window={} minutes, expired={} transfer(s)",
                 expirationWindowMinutes, expiredIds.size());
         } catch (Exception e) {
             log.error("Error during scheduled expiration of pending transfers", e);

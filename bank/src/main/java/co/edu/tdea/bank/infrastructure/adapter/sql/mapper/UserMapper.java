@@ -1,6 +1,6 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.mapper;
 
-import co.edu.tdea.bank.domain.model.User;
+import co.edu.tdea.bank.domain.models.User;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.UserEntity;
 
 import java.util.List;

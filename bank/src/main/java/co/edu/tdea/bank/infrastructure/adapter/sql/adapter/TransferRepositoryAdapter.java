@@ -1,8 +1,8 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.adapter;
 
-import co.edu.tdea.bank.application.port.out.TransferRepositoryPort;
+import co.edu.tdea.bank.domain.ports.out.TransferRepositoryPort;
 import co.edu.tdea.bank.domain.enums.TransferStatus;
-import co.edu.tdea.bank.domain.model.Transfer;
+import co.edu.tdea.bank.domain.models.Transfer;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BankAccountEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.TransferEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.UserEntity;
@@ -33,7 +33,7 @@ public class TransferRepositoryAdapter implements TransferRepositoryPort {
 
     @Override
     public Transfer save(Transfer transfer) {
-        // Resolve all FK references as Hibernate proxies — no SELECT issued.
+        // Resolve all FK references as Hibernate proxies â€” no SELECT issued.
         // approvedBy is nullable: transfers in EN_ESPERA have no approver yet.
         BankAccountEntity sourceRef = bankAccountJpa.getReferenceById(
                 transfer.getSourceAccount().getAccountNumber());

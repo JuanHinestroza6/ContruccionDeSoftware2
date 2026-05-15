@@ -1,13 +1,13 @@
 package co.edu.tdea.bank.infrastructure.adapter.mongo.mapper;
 
-import co.edu.tdea.bank.application.port.out.AuditLogPort.AuditEntry;
+import co.edu.tdea.bank.domain.ports.out.AuditLogPort.AuditEntry;
 import co.edu.tdea.bank.infrastructure.adapter.mongo.document.AuditLogDocument;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Static utility — converts between {@link AuditLogDocument} and the
+ * Static utility â€” converts between {@link AuditLogDocument} and the
  * read-projection {@link AuditEntry} record exposed by {@code AuditLogPort}.
  */
 public final class AuditLogMapper {

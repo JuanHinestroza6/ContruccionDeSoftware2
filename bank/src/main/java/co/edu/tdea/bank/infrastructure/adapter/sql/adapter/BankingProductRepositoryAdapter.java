@@ -1,8 +1,8 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.adapter;
 
-import co.edu.tdea.bank.application.port.out.BankingProductRepositoryPort;
+import co.edu.tdea.bank.domain.ports.out.BankingProductRepositoryPort;
 import co.edu.tdea.bank.domain.enums.ProductCategory;
-import co.edu.tdea.bank.domain.model.BankingProduct;
+import co.edu.tdea.bank.domain.models.BankingProduct;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BankingProductEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.mapper.BankingProductMapper;
 import co.edu.tdea.bank.infrastructure.adapter.sql.repository.BankingProductJpaRepository;

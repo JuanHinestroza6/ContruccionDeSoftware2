@@ -1,9 +1,9 @@
 package co.edu.tdea.bank.infrastructure.adapter.sql.adapter;
 
-import co.edu.tdea.bank.application.port.out.BankAccountRepositoryPort;
+import co.edu.tdea.bank.domain.ports.out.BankAccountRepositoryPort;
 import co.edu.tdea.bank.domain.enums.AccountStatus;
 import co.edu.tdea.bank.domain.enums.AccountType;
-import co.edu.tdea.bank.domain.model.BankAccount;
+import co.edu.tdea.bank.domain.models.BankAccount;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BankAccountEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.ClientEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.mapper.BankAccountMapper;
@@ -29,7 +29,7 @@ public class BankAccountRepositoryAdapter implements BankAccountRepositoryPort {
 
     @Override
     public BankAccount save(BankAccount account) {
-        // Resolve the holder FK as a Hibernate proxy — no SELECT is issued.
+        // Resolve the holder FK as a Hibernate proxy â€” no SELECT is issued.
         // This prevents the mapper from rebuilding a transient ClientEntity
         // graph that Hibernate would otherwise try to cascade-persist.
         ClientEntity holderRef = clientJpa.getReferenceById(account.getHolder().getClientId());
