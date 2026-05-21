@@ -67,13 +67,11 @@ public final class Transfer {
      * @param creationDateTime   moment the transfer was initiated; must not be null
      * @param createdBy          user who initiated the transfer; must not be null
      */
-    public static Transfer create(Long transferId,
-                                  BankAccount sourceAccount,
+    public static Transfer create(BankAccount sourceAccount,
                                   BankAccount destinationAccount,
                                   BigDecimal amount,
                                   LocalDateTime creationDateTime,
                                   User createdBy) {
-        Objects.requireNonNull(transferId,         "transferId must not be null.");
         Objects.requireNonNull(sourceAccount,      "sourceAccount must not be null.");
         Objects.requireNonNull(destinationAccount, "destinationAccount must not be null.");
         Objects.requireNonNull(amount,             "amount must not be null.");
@@ -88,7 +86,7 @@ public final class Transfer {
                     "sourceAccount and destinationAccount must be different accounts.");
         }
 
-        return new Transfer(transferId, sourceAccount, destinationAccount,
+        return new Transfer(null, sourceAccount, destinationAccount,
                             amount, creationDateTime, createdBy);
     }
 

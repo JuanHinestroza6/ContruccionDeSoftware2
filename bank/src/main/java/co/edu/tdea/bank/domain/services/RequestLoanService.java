@@ -82,7 +82,7 @@ public class RequestLoanService implements RequestLoanUseCase {
 
         // 5. Build the loan aggregate â€” loanId is a placeholder; the real ID is
         //    assigned by the persistence layer. The saved instance carries the final ID.
-        Loan loan = Loan.request(null, loanType, client, requestedAmount, termInMonths);
+        Loan loan = Loan.request(loanType, client, requestedAmount, termInMonths);
 
         // 6. Persist â€” the repository assigns and returns the definitive loanId
         Loan savedLoan = loanRepositoryPort.save(loan);

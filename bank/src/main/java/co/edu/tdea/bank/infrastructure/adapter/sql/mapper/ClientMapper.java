@@ -6,6 +6,7 @@ import co.edu.tdea.bank.domain.models.IndividualClient;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.BusinessClientEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.ClientEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.IndividualClientEntity;
+import org.hibernate.Hibernate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -72,14 +73,15 @@ public final class ClientMapper {
 
     public static Client toDomain(ClientEntity entity) {
         if (entity == null) return null;
-        if (entity instanceof IndividualClientEntity ind) {
+        ClientEntity unwrapped = (ClientEntity) Hibernate.unproxy(entity);
+        if (unwrapped instanceof IndividualClientEntity ind) {
             return toDomain(ind);
         }
-        if (entity instanceof BusinessClientEntity biz) {
+        if (unwrapped instanceof BusinessClientEntity biz) {
             return toDomain(biz);
         }
         throw new IllegalArgumentException(
-                "Unknown ClientEntity subtype: " + entity.getClass().getName());
+                "Unknown ClientEntity subtype: " + unwrapped.getClass().getName());
     }
 
     public static IndividualClient toDomain(IndividualClientEntity entity) {

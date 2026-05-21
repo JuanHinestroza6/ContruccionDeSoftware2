@@ -81,7 +81,7 @@ public class CreateTransferService implements CreateTransferUseCase {
                         "BankAccount", destinationAccountNumber));
 
         // 4. Build the transfer aggregate â€” ID is assigned by the persistence layer
-        Transfer transfer = Transfer.create(null, source, destination,
+        Transfer transfer = Transfer.create(source, destination,
                                             amount, creationDateTime, creator);
 
         // 5. Route by approval requirement

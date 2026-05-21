@@ -62,12 +62,10 @@ public final class Loan {
      * @param requestedAmount amount the client wishes to borrow; must be > 0
      * @param termInMonths    repayment term in months; must be > 0
      */
-    public static Loan request(Long loanId,
-                               LoanType loanType,
+    public static Loan request(LoanType loanType,
                                Client applicantClient,
                                BigDecimal requestedAmount,
                                Integer termInMonths) {
-        Objects.requireNonNull(loanId,           "loanId must not be null.");
         Objects.requireNonNull(loanType,         "loanType must not be null.");
         Objects.requireNonNull(applicantClient,  "applicantClient must not be null.");
         Objects.requireNonNull(requestedAmount,  "requestedAmount must not be null.");
@@ -82,7 +80,7 @@ public final class Loan {
                     "termInMonths must be > 0, got: " + termInMonths);
         }
 
-        return new Loan(loanId, loanType, applicantClient, requestedAmount, termInMonths);
+        return new Loan(null, loanType, applicantClient, requestedAmount, termInMonths);
     }
 
     /**
