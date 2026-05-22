@@ -29,9 +29,27 @@ public class BankAccountRepositoryAdapter implements BankAccountRepositoryPort {
 
     @Override
     public BankAccount save(BankAccount account) {
-        // Resolve the holder FK as a Hibernate proxy â€” no SELECT is issued.
-        // This prevents the mapper from rebuilding a transient ClientEntity
-        // graph that Hibernate would otherwise try to cascade-persist.
+        // BankAccountEntity has @Version (nullable Long). Spring Data's isNew()
+        // returns true whenever version == null, which would route every save()
+        // through em.persist() and break updates (DuplicateKey on the PK).
+        //
+        // The mapper has no concept of persistence version, so the only way to
+        // preserve it across updates is to load the managed entity first and
+        // mutate ONLY the fields that the domain considers mutable.
+        Optional<BankAccountEntity> existing = jpa.findById(account.getAccountNumber());
+        if (existing.isPresent()) {
+            BankAccountEntity managed = existing.get();
+            // Mutable fields only — accountNumber (PK), accountType, holder,
+            // currency, openingDate and version are immutable post-INSERT.
+            managed.setCurrentBalance(account.getCurrentBalance());
+            managed.setAccountStatus(account.getAccountStatus());
+            BankAccountEntity saved = jpa.save(managed);
+            return BankAccountMapper.toDomain(saved);
+        }
+
+        // First-time INSERT path: resolve the holder FK as a Hibernate proxy so
+        // no SELECT is issued and the mapper cannot trigger a cascade-persist
+        // of an existing ClientEntity graph.
         ClientEntity holderRef = clientJpa.getReferenceById(account.getHolder().getClientId());
         BankAccountEntity saved = jpa.save(BankAccountMapper.toEntity(account, holderRef));
         return BankAccountMapper.toDomain(saved);

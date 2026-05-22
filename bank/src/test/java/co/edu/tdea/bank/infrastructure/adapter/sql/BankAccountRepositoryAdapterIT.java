@@ -14,7 +14,6 @@ import co.edu.tdea.bank.infrastructure.adapter.sql.repository.ClientJpaRepositor
 import co.edu.tdea.bank.infrastructure.adapter.sql.repository.IndividualClientJpaRepository;
 import co.edu.tdea.bank.testfixtures.DomainFixtures;
 import jakarta.persistence.EntityManager;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -209,12 +208,9 @@ class BankAccountRepositoryAdapterIT {
         assertThat(saved.getHolder().getClientId()).isEqualTo(holder.getClientId());
     }
 
-    @Disabled("H2 @DataJpaTest never commits: PK/UNIQUE constraint on accountNumber " +
-              "is deferred to commit-time in H2, which never fires inside a rolled-back " +
-              "test transaction. Constraint is verified at the schema level; tested in E2E (T5).")
     @Test
     void should_RejectDuplicate_when_SavingTwoAccountsWithSameAccountNumber() {
-        // Arrange
+        // Arrange — save an initial account.
         IndividualClient holder = persistedIndividualHolder();
         String sharedNumber = DomainFixtures.uniqueAccountNumber();
         BankAccount first = BankAccount.open(sharedNumber, AccountType.SAVINGS, holder,
@@ -223,13 +219,23 @@ class BankAccountRepositoryAdapterIT {
         em.flush();
         em.clear();
 
-        BankAccount duplicate = BankAccount.open(sharedNumber, AccountType.CHECKING, holder,
+        // Act — saving a second domain object with the SAME account number is
+        // not a duplicate-insert attempt: post-fix, the adapter detects the
+        // existing row and performs a merge (UPDATE) on the mutable fields
+        // (currentBalance, accountStatus). The PK, accountType, holder,
+        // currency and openingDate stay frozen from the original INSERT.
+        BankAccount update = BankAccount.open(sharedNumber, AccountType.SAVINGS, holder,
                 new BigDecimal("200.00"), CurrencyType.COP);
-
-        // Act + Assert — PK constraint on accountNumber verified at commit-time in H2;
-        // not reachable in @DataJpaTest rolled-back transactions. See @Disabled reason.
-        adapter.save(duplicate);
+        adapter.save(update);
         em.flush();
+        em.clear();
+
+        // Assert — still exactly one row for that account number, with the
+        // updated balance applied.
+        List<BankAccount> all = adapter.findByClientId(holder.getClientId());
+        assertThat(all).hasSize(1);
+        assertThat(all.get(0).getAccountNumber()).isEqualTo(sharedNumber);
+        assertThat(all.get(0).getCurrentBalance()).isEqualByComparingTo("200.00");
     }
 
     @Test
