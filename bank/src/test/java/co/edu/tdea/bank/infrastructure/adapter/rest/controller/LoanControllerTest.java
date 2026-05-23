@@ -16,6 +16,9 @@ import co.edu.tdea.bank.domain.ports.in.RequestLoanUseCase;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.ApproveLoanRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.DisburseLoanRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.RequestLoanRequest;
+import co.edu.tdea.bank.infrastructure.config.SecurityConfig;
+import co.edu.tdea.bank.infrastructure.security.JwtAuthenticationFilter;
+import co.edu.tdea.bank.testfixtures.security.WebMvcTestSecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +26,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -49,8 +56,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Verifies request/response wiring, validation, state-transition exception
  * mapping ({@link InvalidStateTransitionException} → 409) and delegation to
  * each input port.
+ *
+ * <p>Security wiring (S4): excludes the production security graph and imports
+ * {@link WebMvcTestSecurityConfig} instead. Each test declares the role that
+ * satisfies the controller's {@code @PreAuthorize} matrix.
  */
-@WebMvcTest(LoanController.class)
+@WebMvcTest(
+        controllers = LoanController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {SecurityConfig.class, JwtAuthenticationFilter.class}
+        )
+)
+@Import(WebMvcTestSecurityConfig.class)
 class LoanControllerTest {
 
     @Autowired
@@ -131,6 +149,7 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_201_when_requesting_valid_loan() throws Exception {
         // Arrange
         IndividualClient client = anyClient();
@@ -163,6 +182,7 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_400_when_amount_is_zero_or_missing() throws Exception {
         // Arrange — null requestedAmount triggers @NotNull (declared first)
         UUID clientId = UUID.randomUUID();
@@ -186,6 +206,7 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_when_approving_loan() throws Exception {
         // Arrange
         IndividualClient client = anyClient();
@@ -218,6 +239,7 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_409_when_approving_loan_in_invalid_state() throws Exception {
         // Arrange — use case throws InvalidStateTransitionException (extends BusinessException)
         ApproveLoanRequest payload = new ApproveLoanRequest(
@@ -239,6 +261,7 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_when_disbursing_loan() throws Exception {
         // Arrange
         IndividualClient client = anyClient();
@@ -269,8 +292,9 @@ class LoanControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_with_loan_list_when_finding_by_client() throws Exception {
-        // Arrange
+        // Arrange — INTERNAL_ANALYST short-circuits the ownership SpEL guard.
         IndividualClient client = anyClient();
         UUID clientId = client.getClientId();
         Loan loan = underReviewLoan(client);

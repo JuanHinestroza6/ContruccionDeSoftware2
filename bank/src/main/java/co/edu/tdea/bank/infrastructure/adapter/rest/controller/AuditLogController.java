@@ -4,6 +4,7 @@ import co.edu.tdea.bank.domain.ports.in.FindAuditLogUseCase;
 import co.edu.tdea.bank.domain.ports.out.AuditLogPort;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.audit.AuditLogResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -20,8 +21,12 @@ import java.util.List;
  * {@link AuditLogResponse} instances. No business decisions live in this
  * class. Audit log queries do not themselves generate audit entries.</p>
  *
- * <p>TODO: secure these endpoints once the security adapter lands
- * (e.g. {@code @PreAuthorize("hasAnyRole('AUDITOR','BUSINESS_ADMIN')")}).</p>
+ * <p>Authorization (S3):
+ * <ul>
+ *   <li>Both endpoints are reserved for {@code INTERNAL_ANALYST}; per-client
+ *       self-service over the audit log will land in S4 with a dedicated
+ *       {@code by-self} endpoint.</li>
+ * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/audit")
@@ -38,6 +43,7 @@ public class AuditLogController {
      * identifier, ordered by {@code occurredAt} ascending. Returns an empty
      * list (never 404) when the entity has no entries.
      */
+    @PreAuthorize("hasRole('INTERNAL_ANALYST')")
     @GetMapping("/by-entity")
     public ResponseEntity<List<AuditLogResponse>> findByEntity(
             @RequestParam String entityType,
@@ -62,6 +68,7 @@ public class AuditLogController {
      * {@code occurredAt} ascending. Returns an empty list (never 404) when
      * the user has no entries.
      */
+    @PreAuthorize("hasRole('INTERNAL_ANALYST')")
     @GetMapping("/by-user")
     public ResponseEntity<List<AuditLogResponse>> findByPerformedBy(
             @RequestParam String performedBy) {

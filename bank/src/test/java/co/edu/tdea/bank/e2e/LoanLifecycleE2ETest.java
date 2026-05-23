@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -34,6 +36,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,21 +54,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>Flow exercised end-to-end (single test, sequential steps):
  * <ol>
- *   <li>POST {@code /api/v1/clients/individual} — create the applicant.</li>
- *   <li>POST {@code /api/v1/accounts} — open a savings account for the applicant.</li>
- *   <li>POST {@code /api/v1/loans} — submit a new loan request.</li>
- *   <li>PATCH {@code /api/v1/loans/{id}/approve} — analyst approves the loan.</li>
+ *   <li>POST {@code /api/v1/auth/login} — both staff users obtain a JWT.</li>
+ *   <li>POST {@code /api/v1/clients/individual} — create the applicant
+ *       (commercial-employee bearer).</li>
+ *   <li>POST {@code /api/v1/accounts} — open a savings account for the applicant
+ *       (commercial-employee bearer).</li>
+ *   <li>POST {@code /api/v1/loans} — submit a new loan request
+ *       (commercial-employee bearer).</li>
+ *   <li>PATCH {@code /api/v1/loans/{id}/approve} — analyst approves the loan
+ *       (internal-analyst bearer).</li>
  *   <li>GET {@code /api/v1/audit/by-entity?...} — confirms audit trail exists for
- *       LOAN_REQUESTED and LOAN_APPROVED events.</li>
+ *       LOAN_REQUESTED and LOAN_APPROVED events (internal-analyst bearer).</li>
  * </ol>
  *
- * <p>Two prerequisites are seeded directly through the JPA repositories because
- * the system has no public endpoint to manage {@code User} aggregates:
- * <ul>
- *   <li>a relatedClient-linked user (so {@code openAccount} and
- *       {@code requestLoan} pass the linked-user check), and</li>
- *   <li>an {@code INTERNAL_ANALYST} (so {@code approveLoan} passes the role check).</li>
- * </ul>
+ * <p>Staff users (commercial employee + internal analyst) are seeded with a
+ * BCrypt-hashed password in {@code @BeforeEach} so the test can drive
+ * {@code /auth/login} for real and propagate {@code Authorization: Bearer ...}
+ * across each request — matching the production authentication contract.
  *
  * <p>This test deliberately does NOT use {@code @Transactional} at the class
  * level — each MockMvc call goes through Spring's transactional service layer
@@ -76,9 +81,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@code /api/v1/loans/{id}/disburse}) is intentionally exercised only in the
  * {@code @Disabled} companion test {@link #should_DisburseLoan_when_LoanIsApproved()}
  * because of a known production bug in the persistence adapter — see that
- * test's Javadoc for full details. The disable note from
- * {@code BankAccountRepositoryAdapterIT} points to T5 to verify the same code
- * path, but the bug prevents end-to-end execution until production is fixed.
+ * test's Javadoc for full details.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
@@ -95,6 +98,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.jpa.open-in-view=true"
 })
 class LoanLifecycleE2ETest {
+
+    private static final String COMMERCIAL_USERNAME = "comercial-e2e";
+    private static final String ANALYST_USERNAME    = "analista-e2e";
+    private static final String STAFF_PASSWORD      = "Staff123!E2E";
 
     @Autowired
     private MockMvc mockMvc;
@@ -117,11 +124,18 @@ class LoanLifecycleE2ETest {
     @Autowired
     private AuditLogMongoRepository auditLogMongoRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private final ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
+    private UUID analystUserId;
+    private String commercialToken;
+    private String analystToken;
+
     @BeforeEach
-    void cleanState() {
+    void cleanStateAndSeedStaffUsers() throws Exception {
         // Order matters because of FK constraints.
         loanJpaRepository.deleteAll();
         bankAccountJpaRepository.deleteAll();
@@ -129,34 +143,76 @@ class LoanLifecycleE2ETest {
         individualClientJpaRepository.deleteAll();
         clientJpaRepository.deleteAll();
         auditLogMongoRepository.deleteAll();
+
+        // Seed the COMMERCIAL_EMPLOYEE that creates clients, opens accounts,
+        // and submits loan requests on behalf of the applicant.
+        UUID commercialUserId = UUID.randomUUID();
+        UserEntity commercial = staffUser(
+                commercialUserId,
+                COMMERCIAL_USERNAME,
+                SystemRole.COMMERCIAL_EMPLOYEE,
+                "Carla Comercial",
+                "carla.comercial@example.com");
+        userJpaRepository.saveAndFlush(commercial);
+
+        // Seed the INTERNAL_ANALYST that approves/disburses loans and reads audit.
+        analystUserId = UUID.randomUUID();
+        UserEntity analyst = staffUser(
+                analystUserId,
+                ANALYST_USERNAME,
+                SystemRole.INTERNAL_ANALYST,
+                "Alice Analyst",
+                "alice.analyst@example.com");
+        userJpaRepository.saveAndFlush(analyst);
+
+        // Authenticate both staff users via the real /auth/login endpoint and
+        // capture the JWTs returned. This proves S2-S3-S4 wiring is functional
+        // end-to-end (no shortcuts via @WithMockUser).
+        commercialToken = login(COMMERCIAL_USERNAME, STAFF_PASSWORD);
+        analystToken    = login(ANALYST_USERNAME,   STAFF_PASSWORD);
+    }
+
+    private UserEntity staffUser(UUID userId,
+                                 String username,
+                                 SystemRole role,
+                                 String fullName,
+                                 String email) {
+        UserEntity entity = new UserEntity();
+        entity.setUserId(userId);
+        entity.setUsername(username);
+        entity.setPassword(passwordEncoder.encode(STAFF_PASSWORD));
+        entity.setSystemRole(role);
+        entity.setUserStatus(UserStatus.ACTIVE);
+        entity.setFullName(fullName);
+        entity.setIdentificationId("STAFF-" + UUID.randomUUID().toString().substring(0, 8));
+        entity.setEmail(email);
+        entity.setPhone("+57 300 0000001");
+        entity.setAddress("HQ, Medellin");
+        entity.setBirthDate(LocalDate.of(1985, 1, 1));
+        return entity;
+    }
+
+    private String login(String username, String password) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("username", username, "password", password))))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        return JsonPath.read(body, "$.token");
+    }
+
+    private static String bearer(String token) {
+        return "Bearer " + token;
     }
 
     @Test
     void should_CompleteLoanLifecycleThroughApproval_when_AllStepsExecuteInSequence() throws Exception {
 
         // =====================================================================
-        // Pre-Step: seed the INTERNAL_ANALYST user needed for approve.
-        // The system has no REST endpoint to manage users, so we persist the
-        // entity directly. Note that UserMapper.toEntity does NOT populate the
-        // mandatory username/password columns, hence the raw-entity approach.
-        // =====================================================================
-        UUID analystUserId = UUID.randomUUID();
-        UserEntity analyst = new UserEntity();
-        analyst.setUserId(analystUserId);
-        analyst.setUsername("analyst-" + analystUserId);
-        analyst.setPassword("dummy-password");
-        analyst.setSystemRole(SystemRole.INTERNAL_ANALYST);
-        analyst.setUserStatus(UserStatus.ACTIVE);
-        analyst.setFullName("Alice Analyst");
-        analyst.setIdentificationId("A-" + UUID.randomUUID().toString().substring(0, 8));
-        analyst.setEmail("alice.analyst@example.com");
-        analyst.setPhone("+57 300 0000001");
-        analyst.setAddress("HQ, Medellin");
-        analyst.setBirthDate(LocalDate.of(1985, 1, 1));
-        userJpaRepository.saveAndFlush(analyst);
-
-        // =====================================================================
-        // Step 1: register the individual client.
+        // Step 1: register the individual client (commercial bearer).
         // =====================================================================
         RegisterIndividualClientRequest registerRequest = new RegisterIndividualClientRequest(
                 "CC-" + UUID.randomUUID().toString().substring(0, 8),
@@ -168,6 +224,7 @@ class LoanLifecycleE2ETest {
         );
 
         MvcResult clientResult = mockMvc.perform(post("/api/v1/clients/individual")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
@@ -185,7 +242,7 @@ class LoanLifecycleE2ETest {
         UserEntity linkedUser = new UserEntity();
         linkedUser.setUserId(linkedUserId);
         linkedUser.setUsername("client-user-" + linkedUserId);
-        linkedUser.setPassword("dummy-password");
+        linkedUser.setPassword(passwordEncoder.encode("UnusedClientPwd!"));
         linkedUser.setRelatedClientId(clientId);
         linkedUser.setSystemRole(SystemRole.INDIVIDUAL_CLIENT);
         linkedUser.setUserStatus(UserStatus.ACTIVE);
@@ -198,7 +255,7 @@ class LoanLifecycleE2ETest {
         userJpaRepository.saveAndFlush(linkedUser);
 
         // =====================================================================
-        // Step 2: open a savings account for the client.
+        // Step 2: open a savings account for the client (commercial bearer).
         // =====================================================================
         String accountNumber = "ACC-E2E-" + UUID.randomUUID().toString().substring(0, 8);
         BigDecimal initialBalance = new BigDecimal("1000000.00");
@@ -211,6 +268,7 @@ class LoanLifecycleE2ETest {
         );
 
         mockMvc.perform(post("/api/v1/accounts")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(openAccountRequest)))
                 .andExpect(status().isCreated())
@@ -220,7 +278,8 @@ class LoanLifecycleE2ETest {
                 .andExpect(jsonPath("$.currentBalance").value(1000000.00));
 
         // =====================================================================
-        // Step 3: submit a loan request — created in UNDER_REVIEW.
+        // Step 3: submit a loan request — created in UNDER_REVIEW
+        // (commercial bearer; COMMERCIAL_EMPLOYEE is in the request loan matrix).
         // =====================================================================
         BigDecimal requestedAmount = new BigDecimal("5000000.00");
         RequestLoanRequest requestLoanRequest = new RequestLoanRequest(
@@ -231,6 +290,7 @@ class LoanLifecycleE2ETest {
         );
 
         MvcResult loanResult = mockMvc.perform(post("/api/v1/loans")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestLoanRequest)))
                 .andExpect(status().isCreated())
@@ -244,7 +304,7 @@ class LoanLifecycleE2ETest {
         Long loanId = rawLoanId.longValue();
 
         // =====================================================================
-        // Step 4: approve the loan (analyst).
+        // Step 4: approve the loan (analyst bearer).
         // =====================================================================
         BigDecimal approvedAmount = new BigDecimal("4500000.00");
         ApproveLoanRequest approveRequest = new ApproveLoanRequest(
@@ -255,6 +315,7 @@ class LoanLifecycleE2ETest {
         );
 
         mockMvc.perform(patch("/api/v1/loans/{loanId}/approve", loanId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(approveRequest)))
                 .andExpect(status().isOk())
@@ -264,10 +325,10 @@ class LoanLifecycleE2ETest {
                 .andExpect(jsonPath("$.interestRate").value(0.15));
 
         // =====================================================================
-        // Step 5 (audit verification): confirm the audit trail captured the
-        // loan lifecycle events recorded so far.
+        // Step 5 (audit verification): analyst bearer (audit is analyst-only).
         // =====================================================================
         MvcResult auditResult = mockMvc.perform(get("/api/v1/audit/by-entity")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken))
                         .param("entityType", "Loan")
                         .param("entityId", String.valueOf(loanId)))
                 .andExpect(status().isOk())
@@ -289,8 +350,10 @@ class LoanLifecycleE2ETest {
                 .hasSizeGreaterThanOrEqualTo(2);
 
         // Sanity check on the account read endpoint — balance should NOT have
-        // changed yet (no disbursement has happened).
-        mockMvc.perform(get("/api/v1/accounts/{accountNumber}", accountNumber))
+        // changed yet (no disbursement has happened). INTERNAL_ANALYST short-
+        // circuits the ownership SpEL guard on /accounts/{accountNumber}.
+        mockMvc.perform(get("/api/v1/accounts/{accountNumber}", accountNumber)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountNumber").value(accountNumber))
                 .andExpect(jsonPath("$.currentBalance").value(1000000.00));
@@ -335,29 +398,14 @@ class LoanLifecycleE2ETest {
      */
     @Test
     void should_DisburseLoan_when_LoanIsApproved() throws Exception {
-        // Pre-Step: seed analyst.
-        UUID analystUserId = UUID.randomUUID();
-        UserEntity analyst = new UserEntity();
-        analyst.setUserId(analystUserId);
-        analyst.setUsername("analyst-" + analystUserId);
-        analyst.setPassword("dummy-password");
-        analyst.setSystemRole(SystemRole.INTERNAL_ANALYST);
-        analyst.setUserStatus(UserStatus.ACTIVE);
-        analyst.setFullName("Alice Analyst");
-        analyst.setIdentificationId("A-" + UUID.randomUUID().toString().substring(0, 8));
-        analyst.setEmail("alice.analyst@example.com");
-        analyst.setPhone("+57 300 0000001");
-        analyst.setAddress("HQ, Medellin");
-        analyst.setBirthDate(LocalDate.of(1985, 1, 1));
-        userJpaRepository.saveAndFlush(analyst);
-
-        // Create client.
+        // Create client (commercial bearer).
         RegisterIndividualClientRequest registerRequest = new RegisterIndividualClientRequest(
                 "CC-" + UUID.randomUUID().toString().substring(0, 8),
                 "john.borrower@example.com", "+57 300 9999999",
                 "Cra 1 # 2-3, Medellin", "John Borrower",
                 LocalDate.of(1990, 6, 15));
         MvcResult clientResult = mockMvc.perform(post("/api/v1/clients/individual")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
@@ -370,7 +418,7 @@ class LoanLifecycleE2ETest {
         UUID linkedUserId = UUID.randomUUID();
         linkedUser.setUserId(linkedUserId);
         linkedUser.setUsername("client-user-" + linkedUserId);
-        linkedUser.setPassword("dummy-password");
+        linkedUser.setPassword(passwordEncoder.encode("UnusedClientPwd!"));
         linkedUser.setRelatedClientId(clientId);
         linkedUser.setSystemRole(SystemRole.INDIVIDUAL_CLIENT);
         linkedUser.setUserStatus(UserStatus.ACTIVE);
@@ -382,18 +430,20 @@ class LoanLifecycleE2ETest {
         linkedUser.setBirthDate(LocalDate.of(1990, 6, 15));
         userJpaRepository.saveAndFlush(linkedUser);
 
-        // Open account.
+        // Open account (commercial bearer).
         String accountNumber = "ACC-E2E-" + UUID.randomUUID().toString().substring(0, 8);
         BigDecimal initialBalance = new BigDecimal("1000000.00");
         mockMvc.perform(post("/api/v1/accounts")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new OpenBankAccountRequest(
                                 clientId, accountNumber, AccountType.SAVINGS,
                                 initialBalance, CurrencyType.COP))))
                 .andExpect(status().isCreated());
 
-        // Request loan.
+        // Request loan (commercial bearer).
         MvcResult loanResult = mockMvc.perform(post("/api/v1/loans")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(commercialToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new RequestLoanRequest(
                                 clientId, LoanType.PERSONAL, new BigDecimal("5000000.00"), 24))))
@@ -402,18 +452,20 @@ class LoanLifecycleE2ETest {
         Long loanId = ((Number) JsonPath.read(
                 loanResult.getResponse().getContentAsString(), "$.loanId")).longValue();
 
-        // Approve loan.
+        // Approve loan (analyst bearer).
         BigDecimal approvedAmount = new BigDecimal("4500000.00");
         mockMvc.perform(patch("/api/v1/loans/{loanId}/approve", loanId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ApproveLoanRequest(
                                 analystUserId, approvedAmount,
                                 new BigDecimal("0.15"), LocalDate.now()))))
                 .andExpect(status().isOk());
 
-        // Disburse loan — fails today because of the production bug
-        // described in the test Javadoc.
+        // Disburse loan — fails today because of the production bug described
+        // in the test Javadoc.
         mockMvc.perform(patch("/api/v1/loans/{loanId}/disburse", loanId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new DisburseLoanRequest(
                                 accountNumber, LocalDate.now(), analystUserId))))
@@ -423,7 +475,8 @@ class LoanLifecycleE2ETest {
 
         // Verify account balance grew by the approved amount.
         BigDecimal expectedBalance = initialBalance.add(approvedAmount);
-        MvcResult accountResult = mockMvc.perform(get("/api/v1/accounts/{accountNumber}", accountNumber))
+        MvcResult accountResult = mockMvc.perform(get("/api/v1/accounts/{accountNumber}", accountNumber)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken)))
                 .andExpect(status().isOk())
                 .andReturn();
         Number actualBalanceJson = JsonPath.read(
@@ -433,6 +486,7 @@ class LoanLifecycleE2ETest {
 
         // Verify the audit trail captured the disbursement event.
         MvcResult auditResult = mockMvc.perform(get("/api/v1/audit/by-entity")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(analystToken))
                         .param("entityType", "Loan")
                         .param("entityId", String.valueOf(loanId)))
                 .andExpect(status().isOk())

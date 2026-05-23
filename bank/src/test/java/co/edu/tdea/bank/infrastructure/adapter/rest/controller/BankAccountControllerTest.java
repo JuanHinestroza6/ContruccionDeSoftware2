@@ -8,6 +8,9 @@ import co.edu.tdea.bank.domain.models.IndividualClient;
 import co.edu.tdea.bank.domain.ports.in.FindBankAccountUseCase;
 import co.edu.tdea.bank.domain.ports.in.OpenBankAccountUseCase;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.account.OpenBankAccountRequest;
+import co.edu.tdea.bank.infrastructure.config.SecurityConfig;
+import co.edu.tdea.bank.infrastructure.security.JwtAuthenticationFilter;
+import co.edu.tdea.bank.testfixtures.security.WebMvcTestSecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,7 +18,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -38,8 +45,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Covers happy paths, validation failures and the
  * {@code ResourceNotFoundException} translation performed by
  * {@link co.edu.tdea.bank.infrastructure.adapter.rest.exception.GlobalExceptionHandler}.
+ *
+ * <p>Security wiring (S4): excludes the production security graph and imports
+ * {@link WebMvcTestSecurityConfig} instead. Each test declares the role that
+ * satisfies the controller's {@code @PreAuthorize} matrix.
  */
-@WebMvcTest(BankAccountController.class)
+@WebMvcTest(
+        controllers = BankAccountController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {SecurityConfig.class, JwtAuthenticationFilter.class}
+        )
+)
+@Import(WebMvcTestSecurityConfig.class)
 class BankAccountControllerTest {
 
     @Autowired
@@ -71,6 +89,7 @@ class BankAccountControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "TELLER_EMPLOYEE")
     void should_return_201_when_opening_valid_account() throws Exception {
         // Arrange
         UUID clientId = UUID.randomUUID();
@@ -113,6 +132,7 @@ class BankAccountControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "TELLER_EMPLOYEE")
     void should_return_400_when_holderClientId_is_null() throws Exception {
         // Arrange — the DTO field is named {@code clientId}; the spec uses
         // "holderClientId" as the conceptual name. Sending a payload with
@@ -138,8 +158,10 @@ class BankAccountControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_when_account_found_by_number() throws Exception {
-        // Arrange
+        // Arrange — INTERNAL_ANALYST short-circuits the `hasRole(...) or @authz.*`
+        // ownership guard, so the controller proceeds to the use case.
         String accountNumber = "ACC-EXISTING";
         BankAccount existing = BankAccount.open(
                 accountNumber,
@@ -161,6 +183,7 @@ class BankAccountControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_404_when_account_not_found() throws Exception {
         // Arrange
         String accountNumber = "ACC-MISSING";

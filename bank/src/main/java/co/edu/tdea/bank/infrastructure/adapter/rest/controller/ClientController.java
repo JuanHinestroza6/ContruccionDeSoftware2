@@ -13,6 +13,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.ClientDtoMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,8 +30,14 @@ import java.util.UUID;
  * off to the corresponding input port, and serializes the domain result via
  * {@link ClientDtoMapper}. No business decisions live in this class.</p>
  *
- * <p>TODO: secure these endpoints once the security adapter lands
- * (e.g. {@code @PreAuthorize("hasRole('BACK_OFFICE')")}).</p>
+ * <p>Authorization (S3):
+ * <ul>
+ *   <li>Registration endpoints are restricted to back-office staff
+ *       (tellers, commercial employees, internal analysts).</li>
+ *   <li>Read endpoints add ownership filtering via {@code @authz} so a
+ *       client may only inspect its own record; staff bypass roles
+ *       (analyst / teller / commercial) read any record.</li>
+ * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/clients")
@@ -51,6 +58,7 @@ public class ClientController {
     /**
      * Registers a new individual (natural person) client.
      */
+    @PreAuthorize("hasAnyRole('TELLER_EMPLOYEE','COMMERCIAL_EMPLOYEE','INTERNAL_ANALYST')")
     @PostMapping("/individual")
     public ResponseEntity<ClientResponse> registerIndividualClient(
             @Valid @RequestBody RegisterIndividualClientRequest request) {
@@ -70,6 +78,7 @@ public class ClientController {
     /**
      * Registers a new business (legal entity) client.
      */
+    @PreAuthorize("hasAnyRole('TELLER_EMPLOYEE','COMMERCIAL_EMPLOYEE','INTERNAL_ANALYST')")
     @PostMapping("/business")
     public ResponseEntity<ClientResponse> registerBusinessClient(
             @Valid @RequestBody RegisterBusinessClientRequest request) {
@@ -89,6 +98,7 @@ public class ClientController {
     /**
      * Retrieves a client by its technical identifier.
      */
+    @PreAuthorize("hasRole('INTERNAL_ANALYST') or @authz.hasAccessToClient(authentication, #clientId)")
     @GetMapping("/{clientId}")
     public ResponseEntity<ClientResponse> findClientById(@PathVariable UUID clientId) {
         Client client = findClientUseCase.findById(clientId);
@@ -98,6 +108,7 @@ public class ClientController {
     /**
      * Retrieves a client by its national identification number (Cédula / NIT).
      */
+    @PreAuthorize("hasAnyRole('INTERNAL_ANALYST','TELLER_EMPLOYEE','COMMERCIAL_EMPLOYEE')")
     @GetMapping("/by-identification/{identificationId}")
     public ResponseEntity<ClientResponse> findClientByIdentificationId(
             @PathVariable String identificationId) {

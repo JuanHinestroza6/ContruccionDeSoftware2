@@ -2,10 +2,17 @@ package co.edu.tdea.bank.infrastructure.adapter.rest.controller;
 
 import co.edu.tdea.bank.domain.ports.in.FindAuditLogUseCase;
 import co.edu.tdea.bank.domain.ports.out.AuditLogPort.AuditEntry;
+import co.edu.tdea.bank.infrastructure.config.SecurityConfig;
+import co.edu.tdea.bank.infrastructure.security.JwtAuthenticationFilter;
+import co.edu.tdea.bank.testfixtures.security.WebMvcTestSecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
@@ -25,8 +32,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link FindAuditLogUseCase} and maps {@code AuditEntry} projections one-to-one
  * to {@code AuditLogResponse}. Verifies HTTP wiring, query-parameter binding
  * and pure delegation to the input port.
+ *
+ * <p>Security wiring (S4): both endpoints are restricted to
+ * {@code INTERNAL_ANALYST}, so the entire class runs under that mock user via
+ * {@link WithMockUser} at the type level. Production security is excluded from
+ * the slice and replaced by {@link WebMvcTestSecurityConfig}.
  */
-@WebMvcTest(AuditLogController.class)
+@WebMvcTest(
+        controllers = AuditLogController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {SecurityConfig.class, JwtAuthenticationFilter.class}
+        )
+)
+@Import(WebMvcTestSecurityConfig.class)
+@WithMockUser(roles = "INTERNAL_ANALYST")
 class AuditLogControllerTest {
 
     @Autowired

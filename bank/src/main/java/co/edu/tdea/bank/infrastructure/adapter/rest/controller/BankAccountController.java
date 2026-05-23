@@ -9,6 +9,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.BankAccountDtoMapper;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,8 +27,12 @@ import java.util.UUID;
  * off to the corresponding input port, and serializes the domain result via
  * {@link BankAccountDtoMapper}. No business decisions live in this class.</p>
  *
- * <p>TODO: secure these endpoints once the security adapter lands
- * (e.g. {@code @PreAuthorize("hasRole('BACK_OFFICE')")}).</p>
+ * <p>Authorization (S3):
+ * <ul>
+ *   <li>Account opening is restricted to teller / commercial employees.</li>
+ *   <li>Reads add ownership filtering via {@code @authz} so a client may only
+ *       look at its own account; analysts bypass ownership.</li>
+ * </ul>
  */
 @RestController
 @RequestMapping("/api/v1/accounts")
@@ -45,6 +50,7 @@ public class BankAccountController {
     /**
      * Opens a new bank account for an existing client.
      */
+    @PreAuthorize("hasAnyRole('TELLER_EMPLOYEE','COMMERCIAL_EMPLOYEE')")
     @PostMapping
     public ResponseEntity<BankAccountResponse> openAccount(
             @Valid @RequestBody OpenBankAccountRequest request) {
@@ -63,6 +69,7 @@ public class BankAccountController {
     /**
      * Retrieves a bank account by its natural business key.
      */
+    @PreAuthorize("hasRole('INTERNAL_ANALYST') or @authz.hasAccessToAccount(authentication, #accountNumber)")
     @GetMapping("/{accountNumber}")
     public ResponseEntity<BankAccountResponse> findByAccountNumber(
             @PathVariable String accountNumber) {
@@ -75,6 +82,7 @@ public class BankAccountController {
      * Lists every bank account held by the given client. Returns an empty
      * list (never 404) when the client has no accounts.
      */
+    @PreAuthorize("hasRole('INTERNAL_ANALYST') or @authz.hasAccessToClient(authentication, #clientId)")
     @GetMapping("/by-client/{clientId}")
     public ResponseEntity<List<BankAccountResponse>> findByClientId(
             @PathVariable UUID clientId) {

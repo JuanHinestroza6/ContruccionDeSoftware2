@@ -11,6 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -141,6 +145,83 @@ public class GlobalExceptionHandler {
                 fieldErrors
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // ============================================================
+    //                    Security exceptions
+    // ============================================================
+
+    /**
+     * Account is disabled (status INACTIVE). Returns 401 with a generic message
+     * — we surface the cause to the user but never to log files in a way that
+     * could be correlated with enumeration attacks.
+     */
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(DisabledException ex,
+                                                        HttpServletRequest request) {
+        log.warn("Disabled account login attempt at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "ACCOUNT_DISABLED",
+                "User account is not available",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * Account is locked (status BLOCKED). 403 here is intentional: the
+     * credentials are valid but policy forbids access. Distinguishing this from
+     * a plain bad-credentials 401 is acceptable because the user cannot reach
+     * this state without supplying the correct password.
+     */
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ErrorResponse> handleLocked(LockedException ex,
+                                                      HttpServletRequest request) {
+        log.warn("Locked account login attempt at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                "ACCOUNT_LOCKED",
+                "User account is blocked",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    /**
+     * Generic authentication failure: bad credentials, missing/invalid token,
+     * unknown username — all collapsed into a single 401 with an opaque message
+     * to prevent account enumeration.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex,
+                                                              HttpServletRequest request) {
+        log.warn("Authentication failure at {}: {}", request.getRequestURI(), ex.getClass().getSimpleName());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "UNAUTHORIZED",
+                "Authentication failed",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * Authorisation failure (authenticated but lacks the role/permission, or
+     * tried to touch a resource that is not theirs). Always 403, never 404 —
+     * leaking existence is its own information disclosure vulnerability.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
+                                                            HttpServletRequest request) {
+        log.warn("Access denied at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                "FORBIDDEN",
+                "Access denied",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     // ============================================================

@@ -9,6 +9,9 @@ import co.edu.tdea.bank.domain.ports.in.RegisterBusinessClientUseCase;
 import co.edu.tdea.bank.domain.ports.in.RegisterIndividualClientUseCase;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.client.RegisterBusinessClientRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.client.RegisterIndividualClientRequest;
+import co.edu.tdea.bank.infrastructure.config.SecurityConfig;
+import co.edu.tdea.bank.infrastructure.security.JwtAuthenticationFilter;
+import co.edu.tdea.bank.testfixtures.security.WebMvcTestSecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
@@ -39,8 +46,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link co.edu.tdea.bank.infrastructure.adapter.rest.exception.GlobalExceptionHandler}
  * and pure delegation to the input ports. Business logic is owned by the
  * use cases and is mocked out.
+ *
+ * <p>Security wiring (S4): the production {@link SecurityConfig} and
+ * {@link JwtAuthenticationFilter} are excluded from the slice; this test
+ * imports {@link WebMvcTestSecurityConfig} instead so {@code @PreAuthorize}
+ * runs against the {@code @WithMockUser} principal without dragging the JWT
+ * pipeline into the slice. The full JWT round-trip is covered separately by
+ * {@code AuthSecurityTest}.
  */
-@WebMvcTest(ClientController.class)
+@WebMvcTest(
+        controllers = ClientController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {SecurityConfig.class, JwtAuthenticationFilter.class}
+        )
+)
+@Import(WebMvcTestSecurityConfig.class)
 class ClientControllerTest {
 
     @Autowired
@@ -64,6 +85,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_201_when_creating_valid_individual_client() throws Exception {
         // Arrange
         RegisterIndividualClientRequest payload = new RegisterIndividualClientRequest(
@@ -108,6 +130,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_400_with_fieldErrors_when_email_is_invalid() throws Exception {
         // Arrange — email fails @Email validation
         RegisterIndividualClientRequest payload = new RegisterIndividualClientRequest(
@@ -130,6 +153,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_201_when_creating_valid_business_client() throws Exception {
         // Arrange
         RegisterBusinessClientRequest payload = new RegisterBusinessClientRequest(
@@ -173,8 +197,10 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_404_when_client_not_found_by_id() throws Exception {
-        // Arrange
+        // Arrange — INTERNAL_ANALYST short-circuits the `hasRole(...) or @authz.*`
+        // ownership guard so the controller is invoked and the use case can throw.
         UUID clientId = UUID.randomUUID();
         when(findClientUseCase.findById(clientId))
                 .thenThrow(new ResourceNotFoundException("Client not found: " + clientId));
@@ -189,6 +215,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_with_client_when_found_by_id() throws Exception {
         // Arrange
         IndividualClient existing = IndividualClient.create(
@@ -212,6 +239,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_200_when_found_by_identification_id() throws Exception {
         // Arrange
         String identification = "900123456-7";
@@ -236,6 +264,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_404_when_not_found_by_identification_id() throws Exception {
         // Arrange
         String identification = "999999999";
@@ -252,6 +281,7 @@ class ClientControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_422_when_creating_duplicate_client() throws Exception {
         // Arrange — semantically valid payload, but use case rejects with BusinessException
         RegisterIndividualClientRequest payload = new RegisterIndividualClientRequest(

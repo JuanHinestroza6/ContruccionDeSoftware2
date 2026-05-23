@@ -15,7 +15,10 @@ import co.edu.tdea.bank.domain.ports.in.RejectTransferUseCase;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.ApproveTransferRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.CreateTransferRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.RejectTransferRequest;
+import co.edu.tdea.bank.infrastructure.config.SecurityConfig;
+import co.edu.tdea.bank.infrastructure.security.JwtAuthenticationFilter;
 import co.edu.tdea.bank.testfixtures.DomainFixtures;
+import co.edu.tdea.bank.testfixtures.security.WebMvcTestSecurityConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +26,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -33,7 +40,6 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -50,8 +56,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Verifies happy paths, exception mapping
  * ({@link InsufficientFundsException} → 409) and pure delegation to the input
  * ports. Domain construction relies on {@link DomainFixtures}.
+ *
+ * <p>Security wiring (S4): excludes the production security graph and imports
+ * {@link WebMvcTestSecurityConfig} instead. Each test declares the role that
+ * satisfies the controller's {@code @PreAuthorize} matrix.
  */
-@WebMvcTest(TransferController.class)
+@WebMvcTest(
+        controllers = TransferController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = {SecurityConfig.class, JwtAuthenticationFilter.class}
+        )
+)
+@Import(WebMvcTestSecurityConfig.class)
 class TransferControllerTest {
 
     @Autowired
@@ -131,6 +148,7 @@ class TransferControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_201_when_creating_valid_transfer() throws Exception {
         // Arrange
         IndividualClient holder = anyClient();
@@ -172,6 +190,7 @@ class TransferControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMMERCIAL_EMPLOYEE")
     void should_return_409_when_insufficient_funds() throws Exception {
         // Arrange
         User creator = DomainFixtures.validUser();
@@ -199,6 +218,7 @@ class TransferControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMPANY_SUPERVISOR")
     void should_return_200_when_approving_transfer() throws Exception {
         // Arrange
         IndividualClient holder = anyClient();
@@ -230,6 +250,7 @@ class TransferControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "COMPANY_SUPERVISOR")
     void should_return_200_when_rejecting_transfer() throws Exception {
         // Arrange
         IndividualClient holder = anyClient();
@@ -253,8 +274,9 @@ class TransferControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "INTERNAL_ANALYST")
     void should_return_200_with_transfer_list_by_account() throws Exception {
-        // Arrange
+        // Arrange — INTERNAL_ANALYST short-circuits the ownership SpEL guard.
         String accountNumber = "ACC-SRC";
         IndividualClient holder = anyClient();
         User creator = DomainFixtures.validUser();
