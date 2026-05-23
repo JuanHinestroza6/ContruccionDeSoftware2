@@ -1,0 +1,35 @@
+services:
+  mysql:
+    image: mysql:8.3
+    container_name: bank-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bankdb
+    ports:
+      - "3306:3306"
+    volumes:
+      - bank-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: bank-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - bank-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  bank-mysql-data:
+  bank-mongo-data:
