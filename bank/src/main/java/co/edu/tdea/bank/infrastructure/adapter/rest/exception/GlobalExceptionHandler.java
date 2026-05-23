@@ -1,0 +1,244 @@
+package co.edu.tdea.bank.infrastructure.adapter.rest.exception;
+
+import co.edu.tdea.bank.domain.Exceptions.BusinessException;
+import co.edu.tdea.bank.domain.Exceptions.InsufficientFundsException;
+import co.edu.tdea.bank.domain.Exceptions.InvalidStateTransitionException;
+import co.edu.tdea.bank.domain.Exceptions.ResourceNotFoundException;
+import co.edu.tdea.bank.domain.Exceptions.UnauthorizedOperationException;
+import co.edu.tdea.bank.infrastructure.adapter.rest.dto.common.ErrorResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Centralized HTTP error translation for every REST controller.
+ *
+ * <p>Maps domain exceptions to stable HTTP status codes and a uniform
+ * {@link ErrorResponse} body. Technical details (stack traces, internal
+ * exception messages) are never propagated to the client for the catch-all
+ * handler — only the generic message {@code "An unexpected error occurred"}.</p>
+ */
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // ============================================================
+    //                     Domain exceptions
+    // ============================================================
+
+    @ExceptionHandler(InsufficientFundsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientFunds(InsufficientFundsException ex,
+                                                                 HttpServletRequest request) {
+        log.warn("Insufficient funds at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.CONFLICT.value(),
+                "INSUFFICIENT_FUNDS",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(InvalidStateTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStateTransition(InvalidStateTransitionException ex,
+                                                                      HttpServletRequest request) {
+        log.warn("Invalid state transition at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.CONFLICT.value(),
+                "INVALID_STATE_TRANSITION",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex,
+                                                                HttpServletRequest request) {
+        log.warn("Resource not found at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(),
+                "NOT_FOUND",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(UnauthorizedOperationException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedOperation(UnauthorizedOperationException ex,
+                                                                     HttpServletRequest request) {
+        log.warn("Unauthorized operation at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                "FORBIDDEN",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    /**
+     * Generic business rule violation. Declared AFTER the more specific
+     * subclasses so Spring picks this handler only for plain
+     * {@link BusinessException} instances or unmatched subclasses.
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex,
+                                                        HttpServletRequest request) {
+        log.warn("Business rule violation at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.UNPROCESSABLE_ENTITY.value(),
+                "BUSINESS_ERROR",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(body);
+    }
+
+    // ============================================================
+    //                     Client-side errors
+    // ============================================================
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex,
+                                                               HttpServletRequest request) {
+        log.warn("Illegal argument at {}: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(),
+                "BAD_REQUEST",
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex,
+                                                          HttpServletRequest request) {
+        Map<String, String> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        FieldError::getField,
+                        fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "invalid value",
+                        (a, b) -> a   // keep first message on duplicate fields
+                ));
+
+        log.warn("Validation failure at {}: {}", request.getRequestURI(), fieldErrors);
+
+        ErrorResponse body = ErrorResponse.ofValidation(
+                "Validation failed",
+                request.getRequestURI(),
+                fieldErrors
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    // ============================================================
+    //                    Security exceptions
+    // ============================================================
+
+    /**
+     * Account is disabled (status INACTIVE). Returns 401 with a generic message
+     * — we surface the cause to the user but never to log files in a way that
+     * could be correlated with enumeration attacks.
+     */
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabled(DisabledException ex,
+                                                        HttpServletRequest request) {
+        log.warn("Disabled account login attempt at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "ACCOUNT_DISABLED",
+                "User account is not available",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * Account is locked (status BLOCKED). 403 here is intentional: the
+     * credentials are valid but policy forbids access. Distinguishing this from
+     * a plain bad-credentials 401 is acceptable because the user cannot reach
+     * this state without supplying the correct password.
+     */
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ErrorResponse> handleLocked(LockedException ex,
+                                                      HttpServletRequest request) {
+        log.warn("Locked account login attempt at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                "ACCOUNT_LOCKED",
+                "User account is blocked",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    /**
+     * Generic authentication failure: bad credentials, missing/invalid token,
+     * unknown username — all collapsed into a single 401 with an opaque message
+     * to prevent account enumeration.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthentication(AuthenticationException ex,
+                                                              HttpServletRequest request) {
+        log.warn("Authentication failure at {}: {}", request.getRequestURI(), ex.getClass().getSimpleName());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(),
+                "UNAUTHORIZED",
+                "Authentication failed",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    /**
+     * Authorisation failure (authenticated but lacks the role/permission, or
+     * tried to touch a resource that is not theirs). Always 403, never 404 —
+     * leaking existence is its own information disclosure vulnerability.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
+                                                            HttpServletRequest request) {
+        log.warn("Access denied at {}", request.getRequestURI());
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(),
+                "FORBIDDEN",
+                "Access denied",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    // ============================================================
+    //                       Catch-all 500
+    // ============================================================
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex,
+                                                          HttpServletRequest request) {
+        // Log with stack trace internally, but never expose details to the client.
+        log.error("Unexpected error at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "INTERNAL_ERROR",
+                "An unexpected error occurred",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+}
