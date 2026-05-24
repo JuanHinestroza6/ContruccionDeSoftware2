@@ -10,6 +10,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.CreateTransferR
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.RejectTransferRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.transfer.TransferResponse;
 import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.TransferDtoMapper;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +45,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/transfers")
+@Tag(name = "Transferencias", description = "Creación, aprobación y rechazo de transferencias")
 public class TransferController {
 
     private final CreateTransferUseCase createTransferUseCase;

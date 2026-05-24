@@ -6,6 +6,7 @@ import co.edu.tdea.bank.domain.ports.in.OpenBankAccountUseCase;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.account.BankAccountResponse;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.account.OpenBankAccountRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.BankAccountDtoMapper;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/accounts")
+@Tag(name = "Cuentas Bancarias", description = "Apertura y consulta de cuentas bancarias")
 public class BankAccountController {
 
     private final OpenBankAccountUseCase openBankAccountUseCase;
