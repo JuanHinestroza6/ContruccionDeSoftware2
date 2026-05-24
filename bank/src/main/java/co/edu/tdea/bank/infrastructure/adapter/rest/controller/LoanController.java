@@ -12,6 +12,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.LoanResponse;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.RejectLoanRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.loan.RequestLoanRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.LoanDtoMapper;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/loans")
+@Tag(name = "Préstamos", description = "Solicitud, aprobación, rechazo y desembolso de préstamos")
 public class LoanController {
 
     private final RequestLoanUseCase requestLoanUseCase;

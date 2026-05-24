@@ -10,6 +10,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.dto.client.ClientResponse;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.client.RegisterBusinessClientRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.dto.client.RegisterIndividualClientRequest;
 import co.edu.tdea.bank.infrastructure.adapter.rest.mapper.ClientDtoMapper;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/clients")
+@Tag(name = "Clientes", description = "Gestión de clientes: personas naturales y empresas")
 public class ClientController {
 
     private final RegisterIndividualClientUseCase registerIndividualClientUseCase;

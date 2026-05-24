@@ -5,6 +5,7 @@ import co.edu.tdea.bank.infrastructure.adapter.rest.dto.auth.LoginResponse;
 import co.edu.tdea.bank.infrastructure.adapter.sql.entity.UserEntity;
 import co.edu.tdea.bank.infrastructure.adapter.sql.repository.UserJpaRepository;
 import co.edu.tdea.bank.infrastructure.security.JwtService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,7 @@ import java.time.ZoneId;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
+@Tag(name = "Autenticación", description = "Login y obtención de token JWT")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
