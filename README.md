@@ -86,9 +86,7 @@ graph TD
 ---
 
 ## 🗄️ Modelo de datos
-
 ### Diagrama entidad-relación
-
 ```mermaid
 erDiagram
     clients {
@@ -100,12 +98,12 @@ erDiagram
         string client_type
     }
     individual_clients {
-        UUID client_id PK_FK
+        UUID client_id PK, FK
         string full_name
         date birth_date
     }
     business_clients {
-        UUID client_id PK_FK
+        UUID client_id PK, FK
         string company_name
         string legal_representative
     }
@@ -163,7 +161,6 @@ erDiagram
         string category
         boolean requires_approval
     }
-
     clients ||--o{ bank_accounts : "tiene"
     clients ||--o{ loans : "solicita"
     individual_clients ||--|| clients : "extiende (JOINED)"
