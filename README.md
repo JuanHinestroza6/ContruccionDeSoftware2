@@ -540,5 +540,6 @@ cd "ConstruccionDeSoftware2\bank"
 ## 👨‍💻 Autor
 
 **Juan Francisco Hinestroza**
+**Miguel Angel Gonzales Mazo**
 Tecnológico de Antioquia (TdeA)
 Construcción de Software 2 — 2026
